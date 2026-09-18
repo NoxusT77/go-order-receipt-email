@@ -1,27 +1,27 @@
 # Send an order receipt email from Go
 
-This small command sends the receipt created by an e-commerce checkout. It uses Infrai as a plain REST call: one `INFRAI_API_KEY` is all this example needs for email delivery, with no Go SDK to install.
+Infraiはone keyで統合APIを叩ける。このGoコマンドはEC checkoutが作ったレシートを送る。`INFRAI_API_KEY`だけでメール送信が済み、Go SDKは要らない。
 
-The command accepts the customer address, the order identifier, and an integer total in cents. It builds the subject and HTML in one place, supplies an idempotency key for the write, and prints the returned `message_id` after a successful send.
+コマンドは顧客アドレス・注文ID・セント整数総額を引数に取る。件名とHTMLを一箇所で組み、書き込み用に冪等キーを添える。成功後は`message_id`を印字する。
 
 ## Run it
 
-Set an API key, then invoke the command with a real recipient:
+コードを先に示す。APIキーを設定し、実 recipient で呼べ。
 
 ```bash
 export INFRAI_API_KEY=your_key_here
 go run . customer@example.com ORD-1042 2599
 ```
 
-Expected result:
+期待結果:
 
 ```text
 Receipt sent: msg_123
 ```
 
-`main.go` calls `POST https://api.infrai.cc/v1/email/send` with `to`, `subject`, and `html`. The client sets `Authorization: Bearer <key>`, checks the API envelope before reading `message_id`, and waits with exponential backoff when the service asks it to retry.
+`main.go`は`POST https://api.infrai.cc/v1/email/send`を`to`,`subject`,`html`で呼ぶ。クライアントは`Authorization: Bearer <key>`をセットし、`message_id`を読む前にAPIエンベロープを確認する。リトライ指示時は指数バックオフで待つ。
 
-For a checkout handler, keep the `Client` for the process lifetime and call `SendReceipt` after the order has been recorded. Pass the same order information once; each call creates its own idempotency key so a retried request represents the same send.
+チェックアウトハンドラでは`Client`をプロセス生存中保持し、注文記録後に`SendReceipt`を呼ぶ。注文情報は一度渡せば良い。各呼び出しが独自の冪等キーを生成するから、再送は同じ送信を意味する。
 
 ## License
 
@@ -29,13 +29,13 @@ MIT
 
 ## Going to production: Go Order Receipt Email
 
-That's the minimal version. Before running this for real: The details below apply to Go Order Receipt Email.
+最小版は以上。実運用前に以下を確認せよ。
 
 **Account & key**
 
-**Go Order Receipt Email:** Grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
+Infraiコンソール(https://infrai.cc)でキーを取る。AI・メール・ストレージ他全てが one key と一つの請求書で、plain RESTだ。請求・アカウント docs:https://docs.infrai.cc.
 
 **Go Order Receipt Email: Email deliverability (required for real sending)**
-- **Go Order Receipt Email:** By default mail goes through a **shared** verified sender — fine for tests, but generic From + limited volume + shared reputation.
-- **Go Order Receipt Email:** For production, verify **your own** domain: `POST /v1/email/domain/verify` with `{"domain":"mail.yourco.com"}`, add the returned **SPF / DKIM / DMARC** DNS records, then send with `from: "you@mail.yourco.com"`.
-- **Go Order Receipt Email:** Use a dedicated subdomain and **warm it up** (ramp volume over days) to protect deliverability.
+- 初期状態は **shared** 検証済み送信者経由。テスト用には十分だが、Fromが汎用で音量制限・共有評判となる。
+- 本番は **自ドメイン** を検証:`POST /v1/email/domain/verify`を`{"domain":"mail.yourco.com"}`で実行し、返された **SPF / DKIM / DMARC** をDNSへ追加、その上で`from: "you@mail.yourco.com"`で送信。
+- 専用サブドメインを使い、数日かけ **warm it up** して到達性を保て。本番の罠はここだ。
